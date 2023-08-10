@@ -1,17 +1,16 @@
 {
   "files": {
     "main.css": "/static/css/main.74950b42.css",
-    "main.js": "/static/js/main.acff4fa5.js",
+    "main.js": "/static/js/main.26650c3d.js",
     "static/js/787.54a4b8f6.chunk.js": "/static/js/787.54a4b8f6.chunk.js",
-    "static/media/Memelon-Tusk-Whitepaper-V1.8OPT.pdf": "/static/media/Memelon-Tusk-Whitepaper-V1.8OPT.c047ea7ef6a0257b9d92.pdf",
     "static/media/logo.png": "/static/media/logo.529aabd93978c21dec8c.png",
     "index.html": "/index.html",
     "main.74950b42.css.map": "/static/css/main.74950b42.css.map",
-    "main.acff4fa5.js.map": "/static/js/main.acff4fa5.js.map",
+    "main.26650c3d.js.map": "/static/js/main.26650c3d.js.map",
     "787.54a4b8f6.chunk.js.map": "/static/js/787.54a4b8f6.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.74950b42.css",
-    "static/js/main.acff4fa5.js"
+    "static/js/main.26650c3d.js"
   ]
 }
