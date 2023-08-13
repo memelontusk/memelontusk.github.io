@@ -30,7 +30,7 @@ const switchNetwork = async () => {
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: (env === "production") ? "1" : "5"}],
+            params: [{ chainId: (env === "production") ? "0x1" : "0x5"}],
         });
         console.log("You have switched to the right network")
     } catch (switchError) {

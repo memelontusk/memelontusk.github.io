@@ -7,22 +7,23 @@ import contract from "../../utils/contract";
 import web3 from "../../utils/web3"
 
 // images
-// import twitter from '../../img/twitter.png';
+import logo from '../../img/logo.png';
 
 function Home(props) {
     const [inputsValues, setInputsValues] = useState({
         addressIsConnected: false,
+        address: null,
         stakeAmount: 1,
-        stakingOption: "0",
+        stakingOption: 0,
         balance: 0,
         balanceFormatted: "0",
         stakes: [],
+        totalStakedAmount: 0,
+        totalAccumulatedRewards: 0,
+        totalRewardsToBeReceived: 0,
     })
 
     // Modals
-    const [showModalStake, setShowModalStake] = useState(false);
-    const handleCloseModalStake = () => setShowModalStake(false);
-    const handleShowModalStake = () => setShowModalStake(true);
     const [showModalProcessing, setShowModalProcessing] = useState(false);
     const handleCloseModalProcessing = () => setShowModalProcessing(false);
     const handleShowModalProcessing = () => setShowModalProcessing(true);
@@ -49,13 +50,24 @@ function Home(props) {
         }
     };
 
+    let shortenAddress = function(prefixLength, postfixLength, string) {
+        if (prefixLength + postfixLength >= string.length) {
+            return string; // Return original string if prefix and postfix lengths are greater or equal to the string length
+        }
+
+        const prefix = string.substr(0, prefixLength);
+        const postfix = string.substr(-postfixLength);
+
+        return `${prefix}...${postfix}`;
+    };
+
     let connectWallet = async function() {
         document.getElementById('connect-wallet').innerHTML = "CONNECTING";
 
         let address = await connectToMetaMask();
 
         if(address) {
-            getAddressDetails(address);
+            await getAddressDetails(address);
         } else {
             document.getElementById('connect-wallet').innerHTML = "CONNECT WALLET";
         }
@@ -72,6 +84,10 @@ function Home(props) {
             });
 
         let stakes = [];
+        let totalStakedAmount = 0;
+        let totalAccumulatedRewards = 0;
+        let totalRewardsToBeReceived = 0;
+
         await contract.methods.getStakeCount(address).call()
             .then(async function(data) {
                 let stakeCount = parseInt(data);
@@ -87,28 +103,41 @@ function Home(props) {
                                 claimed: data.claimed,
                                 reward: data.reward,
                                 penalty: data.penalty,
+                                penaltyReward: data.penaltyReward,
                             });
+
+                            if(!data.claimed) {
+                                console.log(data);
+
+                                console.log(Date.parse(new Date()));
+                                console.log(Date.parse(new Date(data.startTime * 1000)) + (data.duration * 24 * 60 * 60 * 1000));
+
+                                totalStakedAmount += parseInt(web3.utils.fromWei(data.amount, 'ether'));
+                                totalAccumulatedRewards += parseInt(web3.utils.fromWei(data.reward, 'ether'));
+                                totalRewardsToBeReceived += (parseInt(web3.utils.fromWei(data.amount, 'ether')) * (parseInt(data.duration) / 30) * 0.015) + parseInt(web3.utils.fromWei(data.penaltyReward, 'ether'));
+                            }
                         });
                 }
             });
 
-        newInputsValues = { ...newInputsValues, balance: balance, balanceFormatted: numberFormat(balance, false), stakes: stakes, };
+        newInputsValues = { ...newInputsValues, stakeAmount: 1, balance: balance, balanceFormatted: numberFormat(balance, false), stakes: stakes, address: address, totalStakedAmount: numberFormat(totalStakedAmount, false), totalAccumulatedRewards: numberFormat(totalAccumulatedRewards, false), totalRewardsToBeReceived: numberFormat(totalRewardsToBeReceived, false) };
         setInputsValues(newInputsValues);
     };
 
-    let stakeShowModal = async function() {
-        let address = await connectToMetaMask();
+    let selectStakingOption = async function(stakeIndex) {
+        setInputsValues({ ...inputsValues, stakingOption: stakeIndex });
+    };
 
-        if(address) {
-            getAddressDetails(address);
-            handleShowModalStake();
-        }
+    let inputMaxBalance = async function() {
+        setInputsValues({ ...inputsValues, stakeAmount: inputsValues.balance });
     };
 
     let stake = async function() {
         let address = await connectToMetaMask();
 
         if(address) {
+            await getAddressDetails(address);
+
             let stakeAmount = web3.utils.toWei((inputsValues.stakeAmount).toString(), 'ether');
             let durationIndex = parseInt(inputsValues.stakingOption);
 
@@ -116,10 +145,8 @@ function Home(props) {
                 await contract.methods.stakeTokens(stakeAmount, durationIndex).send({
                     from: address
                 }).on('transactionHash', function(hash) {
-                    handleCloseModalStake();
                     handleShowModalProcessing();
                 }).on('error', function(error) {
-                    handleCloseModalStake();
                     handleShowModalError();
                     document.getElementById('error-message').innerHTML = error.message;
                 }).then(async function(receipt) {
@@ -128,7 +155,7 @@ function Home(props) {
                     handleCloseModalProcessing();
                     handleShowModalSuccess();
 
-                    document.getElementById('success-message').innerHTML = "You have successfully staked " + numberFormat(inputsValues.stakeAmount, false) + " TUSK.";
+                    document.getElementById('success-message').innerHTML = "You have successfully staked " + numberFormat(inputsValues.stakeAmount, false) + "&nbsp;TUSK.";
                 });
             } catch (e) {}
         } else {
@@ -139,16 +166,14 @@ function Home(props) {
 
     let unstake = async function(stakeIndex) {
         let address = await connectToMetaMask();
-
+        console.log(address);
         if(address) {
             try {
                 await contract.methods.withdrawAndClaim(stakeIndex).send({
                     from: address
                 }).on('transactionHash', function(hash) {
-                    handleCloseModalStake();
                     handleShowModalProcessing();
                 }).on('error', function(error) {
-                    handleCloseModalStake();
                     handleShowModalError();
                     document.getElementById('error-message').innerHTML = error.message;
                 }).then(async function(receipt) {
@@ -167,138 +192,183 @@ function Home(props) {
     };
 
     return (
-        <div className="home bg-white">
-            <div className="container">
+        <div className="home bg-color-1">
+            <nav className="navbar navbar-dark navbar-expand-lg bg-body-tertiary py-2" style={{"borderBottom":"1px solid rgb(48, 50, 68)"}}>
+                <div className="container">
+                    <a className="navbar-brand text-white d-flex align-items-center" href="#">
+                        <div className="pe-4">
+                            <img src={logo} width="50" alt="Memelon Tusk" />
+                        </div>
+                        <div>MEMELON TUSK STAKING</div>
+                    </a>
+
+                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                        <span className="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div className="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul className="navbar-nav ms-auto mb-2 mb-lg-0">
+                            <li className="nav-item">
+                                <a href="#" target="_blank" rel="noreferrer" className="btn btn-custom-3 px-4" >BUY MEMELON TUSK</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <div className="container pb-5">
                 <div className="row justify-content-center align-items-center min-vh-100">
-                    <div className="col-lg-10 col-xl-8 col-xxl-7">
-                        <div className="row justify-content-center mb-4">
+                    <div className="col-lg-6 pt-5 py-lg-5 px-3">
+                        <div className="bg-color-2 p-4 p-sm-5">
+                            <p className="text-white font-size-150">Stake & Earn Today!</p>
+                            <p className="text-white font-size-90 font-size-lg-80 font-size-xl-90">Explore diverse staking options tailored to your financial goals. Whether you're looking for short-term gains or long-term growth, we have the perfect plan for you.</p>
+
                             {
-                                !inputsValues.addressIsConnected &&
-                                <div className="col-md-6">
-                                    <button type="button" className="btn btn-custom-1 px-5 py-3 font-size-110 w-100" id="connect-wallet" onClick={connectWallet}>CONNECT WALLET</button>
+                                !inputsValues.addressIsConnected ?
+                                <div className="mb-3">
+                                    <button className="btn btn-custom-3 w-100 px-4 py-3" id="connect-wallet" onClick={connectWallet}>CONNECT WALLET</button>
+                                </div>
+                                :
+                                <div className="mb-3">
+                                    <div className="text-white w-100 px-4 py-3" style={{"border":"1px solid rgb(48, 50, 68)"}}>Wallet Address:&nbsp;&nbsp;&nbsp;&nbsp;{ shortenAddress(6, 7, inputsValues.address) }</div>
                                 </div>
                             }
 
-                            <div className={ !inputsValues.addressIsConnected ? 'col-md-6' : 'col-md-12' }>
-                                <button type="button" className="btn btn-custom-1 px-5 py-3 font-size-110 w-100" onClick={stakeShowModal}>STAKE NOW</button>
+                            <div className="row mb-3 px-1">
+                                <div className="col-6 col-md-4 p-2">
+                                    <button className={'btn btn-custom-2 font-size-lg-80 font-size-xl-100 w-100 ' + (inputsValues.stakingOption === 0 ? 'active' : '')} onClick={() => selectStakingOption(0)}>3 MONTHS<br/>7.5% APR</button>
+                                </div>
+                                <div className="col-6 col-md-4 p-2">
+                                    <button className={'btn btn-custom-2 font-size-lg-80 font-size-xl-100 w-100 ' + (inputsValues.stakingOption === 1 ? 'active' : '')} onClick={() => selectStakingOption(1)}>6 MONTHS<br/>15% APR</button>
+                                </div>
+                                <div className="col-6 col-md-4 p-2">
+                                    <button className={'btn btn-custom-2 font-size-lg-80 font-size-xl-100 w-100 ' + (inputsValues.stakingOption === 2 ? 'active' : '')} onClick={() => selectStakingOption(2)}>9 MONTHS<br/>22.5% APR</button>
+                                </div>
+                                <div className="col-6 col-md-4 p-2">
+                                    <button className={'btn btn-custom-2 font-size-lg-80 font-size-xl-100 w-100 ' + (inputsValues.stakingOption === 3 ? 'active' : '')} onClick={() => selectStakingOption(3)}>12 MONTHS<br/>30% APR</button>
+                                </div>
+                                <div className="col-6 col-md-4 p-2">
+                                    <button className={'btn btn-custom-2 font-size-lg-80 font-size-xl-100 w-100 ' + (inputsValues.stakingOption === 4 ? 'active' : '')} onClick={() => selectStakingOption(4)}>24 MONTHS<br/>60% APR</button>
+                                </div>
+                            </div>
+
+                            <p className="text-white mb-2">Amount to Stake</p>
+
+                            <div className="row px-1 mb-2">
+                                <div className="col-lg-8 p-2">
+                                    <div className="position-relative">
+                                        <div className="position-absolute text-white cursor-pointer" onClick={inputMaxBalance} style={{"top":"16px", "right":"20px"}}>MAX</div>
+                                        <input type="number" step="0" min="1" className="form-control form-control-1 ps-4 py-3" name="stakeAmount" placeholder="Enter Stake Amount" value={inputsValues.stakeAmount} onChange={handleInputChange} style={{"paddingRight":"70px"}} />
+                                    </div>
+                                </div>
+
+                                <div className="col-lg-4 p-2">
+                                    <button className="btn btn-custom-3 w-100 px-4 py-3" onClick={stake}>STAKE</button>
+                                </div>
+                            </div>
+
+                            <p className="text-white mb-0">Balance: { inputsValues.balanceFormatted } TUSK</p>
+                        </div>
+                    </div>
+
+                    <div className="col-lg-6 py-5 px-3">
+                        <div className="pb-3">
+                            <div className="bg-color-2 px-4 px-sm-5 right-boxes">
+                                <div className="row align-items-center">
+                                    <div className="col-sm-9 col-lg-12 col-xl-9">
+                                        <p className="text-white font-size-180 mb-0">{ inputsValues.totalStakedAmount } TUSK</p>
+                                        <p className="text-white font-size-100 mb-0">Staked Amount</p>
+                                    </div>
+                                    <div className="col-3 d-none d-sm-block d-lg-none d-xl-block">
+                                        <div className="text-center">
+                                            <i className="fa-solid fa-steak font-size-400 text-color-1"></i>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {
-                            inputsValues.addressIsConnected &&
-                            <div>
-                                <div className="card mb-4">
-                                    <div className="card-body">
-                                        <p className="text-center mb-0">Balance</p>
-                                        <p className="text-center fw-bold font-size-120 mb-0">{ inputsValues.balanceFormatted } TUSK</p>
+                        <div className="py-3">
+                            <div className="bg-color-2 px-4 px-sm-5 right-boxes">
+                                <div className="row align-items-center">
+                                    <div className="col-sm-9 col-lg-12 col-xl-9">
+                                        <p className="text-white font-size-180 mb-0">{ inputsValues.totalAccumulatedRewards } TUSK</p>
+                                        <p className="text-white font-size-100 mb-0">Accumulated Rewards</p>
                                     </div>
-                                </div>
-
-                                <div className="card">
-                                    <div className="card-body">
-                                        <p className="text-center mb-3">Stakes</p>
-                                        {
-                                            inputsValues.stakes.length > 0 ?
-                                            <div className="table-responsive">
-                                                <table className="table table-bordered mb-2">
-                                                    <thead>
-                                                        <tr>
-                                                            <th className="font-size-90">Amount</th>
-                                                            <th className="font-size-90">Duration</th>
-                                                            <th className="font-size-90">Started</th>
-                                                            <th className="font-size-90">Accumulated Rewards</th>
-                                                            <th className="font-size-90">Status</th>
-                                                            <th className="font-size-90">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                    {inputsValues.stakes.map((stake, index) => (
-                                                        <tr key={ index }>
-                                                            <td className="align-middle text-end">{ numberFormat(web3.utils.fromWei(stake.amount, 'ether'), false) } TUSK</td>
-                                                            <td className="align-middle">{ stake.duration / 30 } Months</td>
-                                                            <td className="align-middle">{ new Date(stake.startTime * 1000).toLocaleDateString('en-US', {month: 'long', day: '2-digit', year: 'numeric'}) }</td>
-                                                            <td className="align-middle text-end">{ numberFormat(web3.utils.fromWei(stake.reward, 'ether'), false) } TUSK</td>
-                                                            <td className="align-middle">{ (stake.claimed) ? 'Claimed' : ((new Date() > new Date(stake.startTime * 1000) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Completed' : 'Ongoing') }</td>
-                                                            <td className="align-middle text-center">
-                                                                {
-                                                                    !stake.claimed &&
-                                                                    <button className="btn btn-custom-1 btn-sm" onClick={() => unstake(stake.index)}>{ (new Date() > new Date(stake.startTime * 1000) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Claim' : 'Unstake' }</button>
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            :
-                                            <p className="text-center fw-bold mb-2">You have no stakes yet.</p>
-                                        }
+                                    <div className="col-3 d-none d-sm-block d-lg-none d-xl-block">
+                                        <div className="text-center">
+                                            <i className="fa-solid fa-coins font-size-420 text-color-1"></i>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        }
+                        </div>
+
+                        <div className="pt-3">
+                            <div className="bg-color-2 px-4 px-sm-5 right-boxes">
+                                <div className="row align-items-center">
+                                    <div className="col-sm-9 col-lg-12 col-xl-9">
+                                        <p className="text-white font-size-180 mb-0">{ inputsValues.totalRewardsToBeReceived } TUSK</p>
+                                        <p className="text-white font-size-100 mb-0">Rewards By End Of Stake</p>
+                                    </div>
+                                    <div className="col-3 d-none d-sm-block d-lg-none d-xl-block">
+                                        <div className="text-center">
+                                            <i className="fa-solid fa-sack-dollar font-size-420 text-color-1"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="pb-5 px-1">
+                    <p className="text-white font-size-150 mb-3">Stake History</p>
+                    <div className="table-responsive">
+                        <table className="table text-white mb-2">
+                            <thead>
+                                <tr className="bg-color-2">
+                                    <th className="text-center align-middle p-3">No.</th>
+                                    <th className="text-center align-middle p-3">Amount</th>
+                                    <th className="text-center align-middle p-3">Duration</th>
+                                    <th className="text-center align-middle p-3">Started</th>
+                                    <th className="text-center align-middle p-3">Accumulated Rewards</th>
+                                    <th className="text-center align-middle p-3">Status</th>
+                                    <th className="text-center align-middle p-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {
+                                inputsValues.stakes.length > 0 ?
+                                // false ?
+                                    inputsValues.stakes.map((stake, index) => (
+                                <tr key={ index }>
+                                    <td className="align-middle p-3 text-end inter">{ stake.index + 1 }</td>
+                                    <td className="align-middle p-3 text-end inter">{ numberFormat(web3.utils.fromWei(stake.amount, 'ether'), false) } TUSK</td>
+                                    <td className="align-middle p-3 text-end inter">{ stake.duration / 30 } Months</td>
+                                    <td className="align-middle p-3 text-end inter">{ new Date(stake.startTime * 1000).toLocaleDateString('en-US', {month: 'long', day: '2-digit', year: 'numeric'}) }</td>
+                                    <td className="align-middle p-3 inter text-end">{ numberFormat(web3.utils.fromWei(stake.reward, 'ether'), false) } TUSK</td>
+                                    <td className="align-middle p-3 inter">{ (stake.claimed) ? 'Claimed' : ((Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Completed' : 'Ongoing') }</td>
+                                    <td className="align-middle p-3 text-center">
+                                        {
+                                            !stake.claimed &&
+                                            <button className="btn btn-custom-3 btn-sm px-3 py-2 w-100" onClick={() => unstake(stake.index)}>{ (Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Claim' : 'Unstake' }</button>
+                                        }
+                                    </td>
+                                </tr>
+                                    ))
+                                :
+                                <tr>
+                                    <td className="align-middle p-3 text-center inter" colSpan="12">You have no stakes yet.</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-
-            <Modal show={showModalStake} onHide={handleCloseModalStake} className="" centered>
-                <div className="modal-body p-5 border-0">
-                    <p className="text-center fw-bold font-size-130">STAKE YOUR MEMELON TUSK</p>
-
-                    <div className="mb-4">
-                        <label htmlFor="" className="col-form-label w-100">Staking Options:</label>
-
-                        <div className="row">
-                            <div className="col-6">
-                                <div className="form-check">
-                                    <input className="form-check-input" type="radio" name="stakingOption" value="0" id="option1" checked={inputsValues.stakingOption === "0"} onChange={handleInputChange} />
-                                    <label className="form-check-label" htmlFor="option1">
-                                        3 Months | 7.5%
-                                    </label>
-                                </div>
-                                <div className="form-check">
-                                    <input className="form-check-input" type="radio" name="stakingOption" value="1" id="option2" checked={inputsValues.stakingOption === "1"} onChange={handleInputChange} />
-                                    <label className="form-check-label" htmlFor="option2">
-                                        6 Months | 15%
-                                    </label>
-                                </div>
-                                <div className="form-check">
-                                    <input className="form-check-input" type="radio" name="stakingOption" value="2" id="option3" checked={inputsValues.stakingOption === "2"} onChange={handleInputChange} />
-                                    <label className="form-check-label" htmlFor="option3">
-                                        9 Months | 22.5%
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="col-6">
-                                <div className="form-check">
-                                    <input className="form-check-input" type="radio" name="stakingOption" value="3" id="option4" checked={inputsValues.stakingOption === "3"} onChange={handleInputChange} />
-                                    <label className="form-check-label" htmlFor="option4">
-                                        12 Months | 30%
-                                    </label>
-                                </div>
-                                <div className="form-check">
-                                    <input className="form-check-input" type="radio" name="stakingOption" value="4" id="option5" checked={inputsValues.stakingOption === "4"} onChange={handleInputChange} />
-                                    <label className="form-check-label" htmlFor="option5">
-                                        24 Months | 60%
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mb-4 pb-3">
-                        <label htmlFor="" className="col-form-label w-100">Quantity:</label>
-                        <input type="number" className="form-control fw-bold text-center font-size-120" name="stakeAmount" min="1" value={inputsValues.stakeAmount} onChange={handleInputChange} />
-                        <small>Balance: {inputsValues.balanceFormatted} TUSK</small>
-                    </div>
-
-                    <div className="text-center">
-                        <button type="button" className="btn btn-custom-1 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalStake}>Close</button>
-                        <button type="button" className="btn btn-custom-1 fw-bold px-5 py-2 font-size-110 mx-1" onClick={stake}>Stake</button>
-                    </div>
-                </div>
-            </Modal>
 
             <Modal show={showModalProcessing} onHide={handleCloseModalProcessing} className="" backdrop="static" keyboard={false} centered>
                 <div className="modal-body p-5">
@@ -317,7 +387,7 @@ function Home(props) {
                         <i className="fas fa-check-circle font-size-400 text-color-1 mb-3"></i>
                         <p className="mb-0 fw-bold font-size-110 mb-4 pb-2" id="success-message"></p>
 
-                        <button className="btn btn-custom-1 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalSuccess}>Okay</button>
+                        <button className="btn btn-custom-3 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalSuccess}>Okay</button>
                     </div>
                 </div>
             </Modal>
@@ -328,7 +398,7 @@ function Home(props) {
                         <i className="fas fa-times-circle font-size-400 text-color-1 mb-3"></i>
                         <p className="mb-0 fw-bold font-size-110 mb-4 pb-2" id="error-message"></p>
 
-                        <button className="btn btn-custom-1 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalError}>Close</button>
+                        <button className="btn btn-custom-3 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalError}>Close</button>
                     </div>
                 </div>
             </Modal>
