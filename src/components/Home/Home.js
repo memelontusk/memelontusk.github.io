@@ -21,6 +21,12 @@ function Home(props) {
         totalStakedAmount: 0,
         totalAccumulatedRewards: 0,
         totalRewardsToBeReceived: 0,
+        unstake: {
+            amount: "0",
+            reward: "0",
+            penalty: "0",
+            penaltyReward: "0",
+        }
     })
 
     // Modals
@@ -33,6 +39,9 @@ function Home(props) {
     const [showModalError, setShowModalError] = useState(false);
     const handleCloseModalError = () => setShowModalError(false);
     const handleShowModalError = () => setShowModalError(true);
+    const [showModalPenalty, setShowModalPenalty] = useState(false);
+    const handleCloseModalPenalty = () => setShowModalPenalty(false);
+    const handleShowModalPenalty = () => setShowModalPenalty(true);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -104,17 +113,26 @@ function Home(props) {
                                 reward: data.reward,
                                 penalty: data.penalty,
                                 penaltyReward: data.penaltyReward,
+                                totalWithdrawalAmount: parseInt(web3.utils.fromWei(data.amount, 'ether')) + parseInt(web3.utils.fromWei(data.reward, 'ether')) + parseInt(web3.utils.fromWei(data.penaltyReward, 'ether')) - parseInt(web3.utils.fromWei(data.penalty, 'ether')),
                             });
 
                             if(!data.claimed) {
-                                console.log(data);
-
-                                console.log(Date.parse(new Date()));
-                                console.log(Date.parse(new Date(data.startTime * 1000)) + (data.duration * 24 * 60 * 60 * 1000));
+                                let percentage;
+                                if(parseInt(data.duration) === 90) {
+                                    percentage = 0.01875;
+                                } else if(parseInt(data.duration) === 180) {
+                                    percentage = 0.075;
+                                } else if(parseInt(data.duration) === 270) {
+                                    percentage = 0.16875;
+                                } else if(parseInt(data.duration) === 360) {
+                                    percentage = 0.3;
+                                } else if(parseInt(data.duration) === 720) {
+                                    percentage = 1.2;
+                                }
 
                                 totalStakedAmount += parseInt(web3.utils.fromWei(data.amount, 'ether'));
                                 totalAccumulatedRewards += parseInt(web3.utils.fromWei(data.reward, 'ether'));
-                                totalRewardsToBeReceived += (parseInt(web3.utils.fromWei(data.amount, 'ether')) * (parseInt(data.duration) / 30) * 0.015) + parseInt(web3.utils.fromWei(data.penaltyReward, 'ether'));
+                                totalRewardsToBeReceived += (parseInt(web3.utils.fromWei(data.amount, 'ether')) * percentage) + parseInt(web3.utils.fromWei(data.penaltyReward, 'ether'));
                             }
                         });
                 }
@@ -164,27 +182,41 @@ function Home(props) {
         }
     };
 
-    let unstake = async function(stakeIndex) {
+    let unstake = async function(stakeIndex, forced) {
         let address = await connectToMetaMask();
-        console.log(address);
+
         if(address) {
-            try {
-                await contract.methods.withdrawAndClaim(stakeIndex).send({
-                    from: address
-                }).on('transactionHash', function(hash) {
-                    handleShowModalProcessing();
-                }).on('error', function(error) {
-                    handleShowModalError();
-                    document.getElementById('error-message').innerHTML = error.message;
-                }).then(async function(receipt) {
-                    await getAddressDetails(address);
+            for(let i = 0; i < inputsValues.stakes.length; i++) {
+                if(inputsValues.stakes[i].index === stakeIndex) {
+                    console.log(inputsValues.stakes[i]);
+                    if(parseInt(web3.utils.fromWei(inputsValues.stakes[i].penalty, 'ether')) === 0 || forced) {
+                        if(forced) {
+                            handleCloseModalPenalty();
+                        }
 
-                    handleCloseModalProcessing();
-                    handleShowModalSuccess();
+                        try {
+                            await contract.methods.withdrawAndClaim(stakeIndex).send({
+                                from: address
+                            }).on('transactionHash', function(hash) {
+                                handleShowModalProcessing();
+                            }).on('error', function(error) {
+                                handleShowModalError();
+                                document.getElementById('error-message').innerHTML = error.message;
+                            }).then(async function(receipt) {
+                                await getAddressDetails(address);
 
-                    document.getElementById('success-message').innerHTML = "You have successfully claimed your stake.";
-                });
-            } catch (e) {}
+                                handleCloseModalProcessing();
+                                handleShowModalSuccess();
+
+                                document.getElementById('success-message').innerHTML = "You have successfully claimed your stake.";
+                            });
+                        } catch (e) {}
+                    } else {
+                        setInputsValues({ ...inputsValues, unstake: inputsValues.stakes[i] });
+                        handleShowModalPenalty();
+                    }
+                }
+            }
         } else {
             handleShowModalError();
             document.getElementById('error-message').innerHTML = "Invalid Address";
@@ -354,7 +386,7 @@ function Home(props) {
                                     <td className="align-middle p-3 text-center">
                                         {
                                             !stake.claimed &&
-                                            <button className="btn btn-custom-3 btn-sm px-3 py-2 w-100" onClick={() => unstake(stake.index)}>{ (Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Claim' : 'Unstake' }</button>
+                                            <button className="btn btn-custom-3 btn-sm px-3 py-2 w-100" onClick={() => unstake(stake.index, false)}>{ (Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Claim' : 'Unstake' }</button>
                                         }
                                     </td>
                                 </tr>
@@ -371,34 +403,46 @@ function Home(props) {
             </div>
 
             <Modal show={showModalProcessing} onHide={handleCloseModalProcessing} className="" backdrop="static" keyboard={false} centered>
-                <div className="modal-body p-5">
+                <div className="modal-body p-4 py-5 p-sm-5">
                     <div className="text-center">
                         <div className="spinner-grow mb-3" style={{"width":"5rem", "height":"5rem"}} role="status">
                             <span className="visually-hidden">Loading...</span>
                         </div>
-                        <p className="mb-0 fw-bold font-size-110 mb-2">Processing your transaction</p>
+                        <p className="mb-0 font-size-110 mb-2">Processing your transaction</p>
                     </div>
                 </div>
             </Modal>
 
             <Modal show={showModalSuccess} onHide={handleCloseModalSuccess} className="" centered>
-                <div className="modal-body p-5 border-0">
+                <div className="modal-body p-4 py-5 p-sm-5 border-0">
                     <div className="text-center">
                         <i className="fas fa-check-circle font-size-400 text-color-1 mb-3"></i>
-                        <p className="mb-0 fw-bold font-size-110 mb-4 pb-2" id="success-message"></p>
+                        <p className="mb-0 font-size-110 mb-4 pb-2" id="success-message"></p>
 
-                        <button className="btn btn-custom-3 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalSuccess}>Okay</button>
+                        <button className="btn btn-custom-3 px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalSuccess}>Okay</button>
                     </div>
                 </div>
             </Modal>
 
             <Modal show={showModalError} onHide={handleCloseModalError} className="" centered>
-                <div className="modal-body p-5">
+                <div className="modal-body p-4 py-5 p-sm-5">
                     <div className="text-center">
                         <i className="fas fa-times-circle font-size-400 text-color-1 mb-3"></i>
-                        <p className="mb-0 fw-bold font-size-110 mb-4 pb-2" id="error-message"></p>
+                        <p className="mb-0 font-size-110 mb-4 pb-2" id="error-message"></p>
 
-                        <button className="btn btn-custom-3 fw-bold px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalError}>Close</button>
+                        <button className="btn btn-custom-3 px-5 py-2 font-size-110 mx-1" onClick={handleCloseModalError}>Close</button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal show={showModalPenalty} onHide={handleCloseModalPenalty} className="" centered>
+                <div className="modal-body p-4 py-5 p-sm-5">
+                    <div className="text-center">
+                        <i className="fas fa-exclamation-circle font-size-400 text-color-1 mb-3"></i>
+                        <p className="mb-0 font-size-110 mb-4 inter pb-2">You are attempting to withdraw your stake ahead of the scheduled time, resulting in a penalty of <span>{ numberFormat(parseInt(web3.utils.fromWei(inputsValues.unstake.penalty, "ether")), false) } TUSK tokens</span>. After applying this penalty, you will receive a total of <span>{ numberFormat(inputsValues.unstake.totalWithdrawalAmount, false) } TUSK tokens</span> from this withdrawal. Please review your decision to ensure that you understand the implications of this early withdrawal.</p>
+
+                        <button className="btn btn-custom-3 inter px-3 px-sm-5 py-2 font-size-100 mx-1" onClick={handleCloseModalPenalty}>Cancel</button>
+                        <button className="btn btn-custom-3 inter px-3 px-sm-5 py-2 font-size-100 mx-1" onClick={() => unstake(inputsValues.unstake.index, true)}>Proceed Anyway</button>
                     </div>
                 </div>
             </Modal>
