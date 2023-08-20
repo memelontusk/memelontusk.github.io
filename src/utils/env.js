@@ -1,3 +1,3 @@
-let env = 'local'; // production, local
+let env = 'production'; // production, local
 
 export default env

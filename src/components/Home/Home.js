@@ -138,7 +138,7 @@ function Home(props) {
                 }
             });
 
-        newInputsValues = { ...newInputsValues, stakeAmount: 1, balance: balance, balanceFormatted: numberFormat(balance, false), stakes: stakes, address: address, totalStakedAmount: numberFormat(totalStakedAmount, false), totalAccumulatedRewards: numberFormat(totalAccumulatedRewards, false), totalRewardsToBeReceived: numberFormat(totalRewardsToBeReceived, false) };
+        newInputsValues = { ...newInputsValues, balance: balance, balanceFormatted: numberFormat(balance, false), stakes: stakes, address: address, totalStakedAmount: numberFormat(totalStakedAmount, false), totalAccumulatedRewards: numberFormat(totalAccumulatedRewards, false), totalRewardsToBeReceived: numberFormat(totalRewardsToBeReceived, false) };
         setInputsValues(newInputsValues);
     };
 
@@ -243,7 +243,7 @@ function Home(props) {
                     <div className="collapse navbar-collapse" id="navbarSupportedContent">
                         <ul className="navbar-nav ms-auto mb-2 mb-lg-0">
                             <li className="nav-item">
-                                <a href="#" target="_blank" rel="noreferrer" className="btn btn-custom-3 px-4" >BUY MEMELON TUSK</a>
+                                <a href={ "https://app.uniswap.org/#/swap?inputCurrency=eth&outputCurrency=" + contract.options.address } target="_blank" rel="noreferrer" className="btn btn-custom-3 px-4" >BUY MEMELON TUSK</a>
                             </li>
                         </ul>
                     </div>
