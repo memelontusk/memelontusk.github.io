@@ -54,6 +54,7 @@
     "@babel/eslint-parser": "^7.22.9",
     "eslint": "^8.46.0",
     "gh-pages": "^3.2.3",
-    "react-router-dom": "^5.2.1"
+    "react-router-dom": "^5.2.1",
+    "@babel/plugin-proposal-private-methods": "^7.0.0"
   }
 }
