@@ -8,7 +8,7 @@ const connectToMetaMask = async () => {
             // Get network ID
             let n = parseInt(window.ethereum.chainId);
 
-            if(n !== ((env === "production") ? 1 : 5)) {
+            if(n !== ((env === "production") ? 56 : 97)) {
                 await switchNetwork();
             }
 
@@ -30,7 +30,7 @@ const switchNetwork = async () => {
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: (env === "production") ? "0x1" : "0x5"}],
+            params: [{ chainId: (env === "production") ? "0x38" : "0x61"}],
         });
         console.log("You have switched to the right network")
     } catch (switchError) {
@@ -46,23 +46,23 @@ const addNetwork = async () => {
         let params;
         if(env === "production") {
             params = {
-                chainId: '0x1',
-                chainName:'Ethereum Mainnet',
-                rpcUrls:['https://mainnet.infura.io/v3/'],
-                blockExplorerUrls:['https://etherscan.io/'],
+                chainId: '0x38',
+                chainName:'BNB Smart Chain',
+                rpcUrls:['https://bsc-dataseed.binance.org/'],
+                blockExplorerUrls:['https://bscscan.com/'],
                 nativeCurrency: {
-                    symbol:'ETH',
+                    symbol:'BNB',
                     decimals: 18
                 }
             }
         } else {
             params = {
-                chainId: '0x5',
-                chainName: 'Goerli test network',
-                rpcUrls: ['https://goerli.infura.io/v3/'],
-                blockExplorerUrls: ['https://goerli.etherscan.io/'],
+                chainId: '0x61',
+                chainName: 'BNB Smart Chain Testnet',
+                rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545'],
+                blockExplorerUrls: ['https://testnet.bscscan.com/'],
                 nativeCurrency: {
-                    symbol: 'GoerliETH',
+                    symbol: 'BNB',
                     decimals: 18
                 }
             };

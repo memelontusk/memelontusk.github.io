@@ -243,7 +243,7 @@ function Home(props) {
                     <div className="collapse navbar-collapse" id="navbarSupportedContent">
                         <ul className="navbar-nav ms-auto mb-2 mb-lg-0">
                             <li className="nav-item">
-                                <a href={ "https://app.uniswap.org/#/swap?inputCurrency=eth&outputCurrency=" + contract.options.address } target="_blank" rel="noreferrer" className="btn btn-custom-3 px-4" >BUY MEMELON TUSK</a>
+                                <a href={ "https://pancakeswap.finance/swap?inputCurrency=eth&outputCurrency=" + contract.options.address } target="_blank" rel="noreferrer" className="btn btn-custom-3 px-4" >BUY MEMELON TUSK</a>
                             </li>
                         </ul>
                     </div>
