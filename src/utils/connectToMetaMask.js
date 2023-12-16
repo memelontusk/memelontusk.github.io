@@ -48,7 +48,7 @@ const addNetwork = async () => {
             params = {
                 chainId: '0x38',
                 chainName:'BNB Smart Chain',
-                rpcUrls:['https://bsc-dataseed.binance.org/'],
+                rpcUrls:['https://bsc.drpc.org/'],
                 blockExplorerUrls:['https://bscscan.com/'],
                 nativeCurrency: {
                     symbol:'BNB',
