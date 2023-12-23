@@ -1,5 +1,6 @@
 import { Modal } from 'react-bootstrap'
-import { useState } from "react";
+import {useEffect, useState} from "react";
+import axios from 'axios';
 
 // blockchain
 import connectToMetaMask from "../../utils/connectToMetaMask";
@@ -26,7 +27,8 @@ function Home(props) {
             reward: "0",
             penalty: "0",
             penaltyReward: "0",
-        }
+        },
+        ranks: [],
     })
 
     // Modals
@@ -83,7 +85,6 @@ function Home(props) {
     };
 
     let getAddressDetails = async function(address) {
-        let newInputsValues = { ...inputsValues, addressIsConnected: true };
         let balance;
 
         await contract.methods.balanceOf(address).call()
@@ -138,7 +139,9 @@ function Home(props) {
                 }
             });
 
-        newInputsValues = { ...newInputsValues, balance: balance, balanceFormatted: numberFormat(balance, false), stakes: stakes, address: address, totalStakedAmount: numberFormat(totalStakedAmount, false), totalAccumulatedRewards: numberFormat(totalAccumulatedRewards, false), totalRewardsToBeReceived: numberFormat(totalRewardsToBeReceived, false) };
+        let ranks = await storeAddress(address);
+
+        let newInputsValues = { ...inputsValues, addressIsConnected: true, balance: balance, balanceFormatted: numberFormat(balance, false), stakes: stakes, address: address, totalStakedAmount: numberFormat(totalStakedAmount, false), totalAccumulatedRewards: numberFormat(totalAccumulatedRewards, false), totalRewardsToBeReceived: numberFormat(totalRewardsToBeReceived, false), ranks: ranks };
         setInputsValues(newInputsValues);
     };
 
@@ -174,6 +177,8 @@ function Home(props) {
                     handleShowModalSuccess();
 
                     document.getElementById('success-message').innerHTML = "You have successfully staked " + numberFormat(inputsValues.stakeAmount, false) + "&nbsp;TUSK.";
+
+                    await storeAddress(address);
                 });
             } catch (e) {}
         } else {
@@ -222,6 +227,43 @@ function Home(props) {
             document.getElementById('error-message').innerHTML = "Invalid Address";
         }
     };
+
+    let storeAddress = async function(address) {
+        let data = new FormData();
+        data.append('address', address);
+
+        let memelonTuskStakes = [];
+
+        await axios.post('https://kinameansbusiness.com/api/memelontusk/storeAddress', data)
+            .then((response) => {
+                memelonTuskStakes = response.data.memelonTuskStakes;
+            }).catch((error) => {
+                console.log(error);
+            })
+
+        return memelonTuskStakes;
+    };
+
+    let getLeaderboards = async function(address) {
+        let data = new FormData();
+        data.append('address', address);
+
+        let memelonTuskStakes = [];
+
+        await axios.post('https://kinameansbusiness.com/api/memelontusk/getStakes', data)
+            .then((response) => {
+                console.log(response.data.memelonTuskStakes);
+                memelonTuskStakes = response.data.memelonTuskStakes;
+            }).catch((error) => {
+                console.log(error);
+            })
+
+        setInputsValues({ ...inputsValues, ranks: memelonTuskStakes });
+    };
+
+    useEffect(async () => {
+        await getLeaderboards();
+    }, []);
 
     return (
         <div className="home bg-color-1">
@@ -357,44 +399,77 @@ function Home(props) {
                 </div>
 
                 <div className="pb-5 px-1">
-                    <p className="text-white font-size-150 mb-3">Stake History</p>
+                    <p className="text-white font-size-150 mb-3">Leaderboards</p>
                     <div className="table-responsive">
                         <table className="table text-white mb-2">
                             <thead>
                                 <tr className="bg-color-2">
-                                    <th className="text-center align-middle p-3">No.</th>
-                                    <th className="text-center align-middle p-3">Amount</th>
-                                    <th className="text-center align-middle p-3">Duration</th>
-                                    <th className="text-center align-middle p-3">Started</th>
+                                    <th className="text-center align-middle p-3">Rank</th>
+                                    <th className="text-center align-middle p-3">Address</th>
+                                    <th className="text-center align-middle p-3">Amount Staked</th>
                                     <th className="text-center align-middle p-3">Accumulated Rewards</th>
-                                    <th className="text-center align-middle p-3">Status</th>
-                                    <th className="text-center align-middle p-3">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                             {
-                                inputsValues.stakes.length > 0 ?
-                                // false ?
-                                    inputsValues.stakes.map((stake, index) => (
+                                inputsValues.ranks.length > 0 ?
+                                    inputsValues.ranks.map((rank, index) => (
                                 <tr key={ index }>
-                                    <td className="align-middle p-3 text-end inter">{ stake.index + 1 }</td>
-                                    <td className="align-middle p-3 text-end inter">{ numberFormat(web3.utils.fromWei(stake.amount, 'ether'), false) } TUSK</td>
-                                    <td className="align-middle p-3 text-end inter">{ stake.duration / 30 } Months</td>
-                                    <td className="align-middle p-3 text-end inter">{ new Date(stake.startTime * 1000).toLocaleDateString('en-US', {month: 'long', day: '2-digit', year: 'numeric'}) }</td>
-                                    <td className="align-middle p-3 inter text-end">{ numberFormat(web3.utils.fromWei(stake.reward, 'ether'), false) } TUSK</td>
-                                    <td className="align-middle p-3 inter">{ (stake.claimed) ? 'Claimed' : ((Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Completed' : 'Ongoing') }</td>
-                                    <td className="align-middle p-3 text-center">
-                                        {
-                                            !stake.claimed &&
-                                            <button className="btn btn-custom-3 btn-sm px-3 py-2 w-100" onClick={() => unstake(stake.index, false)}>{ (Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Claim' : 'Unstake' }</button>
-                                        }
-                                    </td>
+                                    <td className="text-center align-middle p-3 text-end inter">{ index + 1 }</td>
+                                    <td className="text-center align-middle p-3 text-end inter"><a href={'https://bscscan.com/address/' + rank.address} target="_blank" rel={'noreferrer'} className="text-white inter text-decoration-none">{ shortenAddress(6, 7, rank.address) }</a></td>
+                                    <td className="text-center align-middle p-3 text-end inter">{ numberFormat(rank.staked_amount,true) } TUSK</td>
+                                    <td className="text-center align-middle p-3 text-end inter">{ numberFormat(rank.accumulated_rewards,true) } TUSK</td>
                                 </tr>
                                     ))
                                 :
                                 <tr>
-                                    <td className="align-middle p-3 text-center inter" colSpan="12">You have no stakes yet.</td>
+                                    <td className="align-middle p-3 text-center inter" colSpan="12">No stakers yet.</td>
                                 </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="pb-5 px-1">
+                    <p className="text-white font-size-150 mb-3">Stake History</p>
+                    <div className="table-responsive">
+                        <table className="table text-white mb-2">
+                            <thead>
+                            <tr className="bg-color-2">
+                                <th className="text-center align-middle p-3">No.</th>
+                                <th className="text-center align-middle p-3">Amount</th>
+                                <th className="text-center align-middle p-3">Duration</th>
+                                <th className="text-center align-middle p-3">Started</th>
+                                <th className="text-center align-middle p-3">Accumulated Rewards</th>
+                                <th className="text-center align-middle p-3">Status</th>
+                                <th className="text-center align-middle p-3">Action</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {
+                                inputsValues.stakes.length > 0 ?
+                                    // false ?
+                                    inputsValues.stakes.map((stake, index) => (
+                                        <tr key={ index }>
+                                            <td className="text-center align-middle p-3 text-end inter">{ stake.index + 1 }</td>
+                                            <td className="text-center align-middle p-3 text-end inter">{ numberFormat(web3.utils.fromWei(stake.amount, 'ether'), false) } TUSK</td>
+                                            <td className="text-center align-middle p-3 text-end inter">{ stake.duration / 30 } Months</td>
+                                            <td className="text-center align-middle p-3 text-end inter">{ new Date(stake.startTime * 1000).toLocaleDateString('en-US', {month: 'long', day: '2-digit', year: 'numeric'}) }</td>
+                                            <td className="text-center align-middle p-3 inter text-end">{ numberFormat(web3.utils.fromWei(stake.reward, 'ether'), false) } TUSK</td>
+                                            <td className="text-center align-middle p-3 inter">{ (stake.claimed) ? 'Claimed' : ((Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Completed' : 'Ongoing') }</td>
+                                            <td className="text-center align-middle p-3 text-center">
+                                                {
+                                                    !stake.claimed &&
+                                                    <button className="btn btn-custom-3 btn-sm px-3 py-2 w-100" onClick={() => unstake(stake.index, false)}>{ (Date.parse(new Date()) > Date.parse(new Date(stake.startTime * 1000)) + (stake.duration * 24 * 60 * 60 * 1000)) ? 'Claim' : 'Unstake' }</button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    ))
+                                    :
+                                    <tr>
+                                        <td className="align-middle p-3 text-center inter" colSpan="12">You have no stakes yet.</td>
+                                    </tr>
                             }
                             </tbody>
                         </table>

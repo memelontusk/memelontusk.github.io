@@ -6,7 +6,7 @@ const connectToMetaMask = async () => {
     if (window.ethereum) {
         await window.ethereum.request({method: "eth_requestAccounts"}).then(async (accounts) => {
             // Get network ID
-            let n = parseInt(window.ethereum.chainId);
+            let n = parseInt(window.ethereum.request({method: 'eth_chainId'}));
 
             if(n !== ((env === "production") ? 56 : 97)) {
                 await switchNetwork();
@@ -48,7 +48,7 @@ const addNetwork = async () => {
             params = {
                 chainId: '0x38',
                 chainName:'BNB Smart Chain',
-                rpcUrls:['https://bsc.drpc.org/'],
+                rpcUrls:['https://bsc-dataseed.binance.org/'],
                 blockExplorerUrls:['https://bscscan.com/'],
                 nativeCurrency: {
                     symbol:'BNB',
