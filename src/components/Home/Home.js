@@ -178,7 +178,10 @@ function Home(props) {
 
                     document.getElementById('success-message').innerHTML = "You have successfully staked " + numberFormat(inputsValues.stakeAmount, false) + "&nbsp;TUSK.";
 
-                    await storeAddress(address);
+                    let ranks = await storeAddress(address);
+
+                    let newInputsValues = { ...inputsValues, ranks: ranks };
+                    setInputsValues(newInputsValues);
                 });
             } catch (e) {}
         } else {
